@@ -12,6 +12,7 @@ openai.api_key = api_key
 def text_correcter(text):
     # Define the prompt for the AI, instructing it to correct the provided text.
     system_role = "Korrigiere den folgenden deutschen Text und gib mir die korrigierte Version. Mach keine Erklärungen, gib nur den korrigierten Text zurück. Wenn der Text bereits korrekt ist, gib den Originaltext zurück."
+    system_role = "Oprav následující text podle pravidel českého pravopisu a vypiš správnou verzi. Nedávej žádná vysvětlení, jen opravený text. Pokud je text už správně, vypiš původní text."
     messages = [
         {"role": "system", "content": system_role},
         {"role": "user", "content": text}
@@ -83,7 +84,9 @@ def proofreader(text_wErrors):
     
 if __name__ == "__main__":
     text_with_errors = "Dies sind ein Beispielsatz mit einem Fehler."
-    is_error, original, corrected = proofreader(text_with_errors)
-    print("Error Detected:", is_error)
-    print("Original Text:", original)
-    print("Corrected Text:", corrected)
+    import sys
+    for text_with_errors in sys.stdin:
+        is_error, original, corrected = proofreader(text_with_errors)
+        print("Error Detected:", is_error)
+        print("Original Text:", original)
+        print("Corrected Text:", corrected)
