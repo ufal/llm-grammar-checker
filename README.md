@@ -1,6 +1,8 @@
 # LLMs as a grammar checker
 
-This project is a demo, evaluation and experimentation framework. It applies generative LLMs, via API, prompted to propose monolingual text grammar correction and grammar check.
+Let's investigate how LLMs can be used as grammar checkers. 
+
+This project is a framework for demonstration, evaluation and experimenting. It applies generative LLMs via API with prompts to propose monolingual text grammar correction. Then the corrections are converted to grammar checks. The automatic grammar checks can be compared to gold truth, and scored with detection quality metrics precision, recall, F1, etc.
 
 Example: 
 
@@ -16,9 +18,9 @@ For German input text `Kleine katze kom her bite.`, *grammar correction* is `Kle
 
 ## Usage
 
-This project is a shas the following modes:
+This project is a has the following modes:
 
-- 1) **Interactive**: select model and language direction, type input, get output, observe grammar corrections and checks. 
+**1) Interactive**: select model and language direction, type input, get output, observe grammar corrections and checks. 
 
 ```
 llm-grammar-checker$ python3 grammar_checker.py --interactive --language de
@@ -31,7 +33,7 @@ HIGHLIGHTED CORRECTION:	 Kleine </katze/Katze/> </kom/komm/> </her/bitte/> </bit
 CORRECTED TEXT:	 Kleine Katze komm bitte her.
 ```
 
-- 2) **Processing**: Assume you have a text to be corrected in a file, one segment per line. By segment we mean a part of text that will be processed by LLM independently, e.g. sentence, few words, or a paragraph. You want the grammar corrections in another file.
+ **2) Processing**: Assume you have a text to be corrected in a file, one segment per line. By segment we mean a part of text that will be processed by LLM independently, e.g. sentence, few words, or a paragraph. You want the grammar corrections in another file.
 
 ```
 llm-grammar-checker$ python3 grammar_checker.py < demo-data/demo-cs.errors.txt > demo-data/demo-cs.errors-corrected_gpt3.5.tsv
@@ -55,7 +57,7 @@ vážené poslankyně a váženi poslanci,	Vážené poslankyně a vážení pos
 evropa se nachází uprostřed boje.	Evropa se nachází uprostřed boje.
 ```
 
-- 3) **Evaluation**: Assume you have original text with errors, gold grammar corrections, and automatic corrections. The evaluation mode 
+**3) Evaluation**: Assume you have original text with errors, gold grammar corrections, and automatic corrections. The evaluation mode 
 
 - first, converts the corrections to checks, by aligning the original text to the corrected one. 
 
@@ -83,7 +85,7 @@ FINAL SCORES:
 ```
 
 
-## How to interpret the quality scores:
+### How to interpret the quality scores:
 
 - read https://en.wikipedia.org/wiki/Precision_and_recall , https://en.wikipedia.org/wiki/Confusion_matrix
 
@@ -95,11 +97,11 @@ FINAL SCORES:
 
 - precision, recall, F1 and accuracy are in 0.0-1.0 range, the higher the better
 
-- baseline accuracy is the accuracy of a model that always detecs non-error. If accuracy is higher than baseline, it's good. If not, there might be some bug in the code.
+- baseline accuracy is the accuracy of a model that always detecs non-error. If accuracy is higher than baseline, it's good. If not, there might be a bug in the code.
 
 ## Proposed workflow for the tutorial:
 
-The goal of this project is to investigate the ability of state-of-the-art multilingual LLMs to propose grammar corrections. For that, let's integrate the most promising LLMs via API into this code (Task 1), and then create test sets and evaluate the models (Task 2). Task 3, non-LLM baselines, is very optional, low priority. 
+The goal of this project is to investigate the ability of state-of-the-art multilingual LLMs to propose grammar corrections. For that, let's integrate the most promising LLMs via API into this code (Task 1), and then create test sets and evaluate the models (Task 2). Task 3, non-LLM baselines, is low-priority but interesting. 
 
 ### Task 1: LLM Models and APIs
 
@@ -107,7 +109,7 @@ At this moment, there is OpenAI API integrated with gpt-3.5-turbo model.
 
 - To add another OpenAI API model: simply try another model name. Search in OpenAI API documentation for other options.
 
-- To add another API with other models: in `models.py`, add a new class inherited from `GrammarCorrectorBase`, analogical to `OpenAIGPTGrammarCorrector`.
+- To add another API with other models: in `models.py`, add a new class inherited from `GrammarCorrectorBase`, analogical to `OpenAIGPTGrammarCorrector`. Then also add it into `corrector_factory.py`.
 
 ### Task 2: Languages and data
 
@@ -125,7 +127,7 @@ At this moment, the code is tested on German (`de`) and Czech (`cs`).
 
 - Or try to search for ready to use evaluation dataset for grammar checkers on the Internet.
 
-### Task 3 (optional, low priority): State of the art non-LLM grammar checkers
+### Task 3 (low priority): State of the art non-LLM grammar checkers
 
 You can compare the LLM grammar checkers to any other state-of-the-art, e.g. language specific non-LLM grammar checkers. For example https://lindat.mff.cuni.cz/services/korektor/ for Czech, or another ones that you know or find on the Internet.
 
@@ -135,6 +137,6 @@ If your grammar checker is not proposing corrections, you need to adapt the `Gra
 
 ## Credits:
 
-This project is a very extended version of https://github.com/gamzez/python-proofreader .
+This project is an extension of https://github.com/gamzez/python-proofreader .
 
 Author: Dominik Macháček, machacek@ufal.mff.cuni.cz
