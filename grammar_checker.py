@@ -1,62 +1,7 @@
-import re
 import sys
 from continuous_alignment import continuous_alignment
 
-class GrammarCorrectorBase:
-
-    def correct(self, text):
-        """Given input text, return the corrected text."""
-        raise NotImplemented()
-
-    def info(self):
-        '''return: a string with info about the corrector, e.g. model name, language, etc.'''
-        raise NotImplemented()
-
-
-GRAMMAR_CORRECTION_PROMPTS = {
-        "de": "Korrigiere den folgenden deutschen Text und gib mir die korrigierte Version. Mach keine Erklärungen, gib nur den korrigierten Text zurück. Wenn der Text bereits korrekt ist, gib den Originaltext zurück.",
-        "cs": "Oprav následující text podle pravidel českého pravopisu a vypiš správnou verzi. Nedávej žádná vysvětlení, jen opravený text. Pokud je text už správně, vypiš původní text.",
-}
-
-
-class GPTGrammarCorrector(GrammarCorrectorBase):
-    """ Uses OpenAI GPT models for grammar correction.
-    """
-
-    def __init__(self, language="cs", model="gpt-3.5-turbo", api_key_file='openai_api_key.txt'):
-        import openai
-        self.openai = openai
-        # Load the OpenAI API key from the file
-        with open(api_key_file) as f:
-            api_key = f.readline().strip()
-        openai.api_key = api_key
-        self.set_language(language)
-        self.model = model
-
-
-    def set_language(self, language):
-        self.language = language
-        self.system_prompt = GRAMMAR_CORRECTION_PROMPTS[language]
-
-
-    def correct(self, text):
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": text}
-        ]
-        
-        # Send the correction request to the API.
-        completion = self.openai.ChatCompletion.create(
-            model=self.model,
-            messages=messages
-        )
-
-        # Extract the corrected text from the response.
-        chat_response = completion.choices[0].message.content
-        return chat_response
-
-    def info(self):
-        return f"GPTGrammarCorrector(model={self.model}, language={self.language})"
+from models import *
 
 class GrammarChecker:
     """
@@ -223,11 +168,12 @@ class GrammarChecker:
         return r
 
 def main_interactive(args):
-    corrector = GPTGrammarCorrector(language=args.language)
+    corrector = corrector_factory(args.model, language=args.language)
     checker = GrammarChecker()
     print("INFO: Interactive grammar checker and corrector. Type input text and observe automatic check and correction proposal. " + \
           "Note that it might be wrong.", file=sys.stderr)
-    print("INFO: Model ")
+    print("INFO: Model: ", corrector.info(), file=sys.stderr)
+
     for text_with_errors in iter(input, 'exit'):
         text_with_errors = text_with_errors.strip()
         if not text_with_errors:
@@ -280,7 +226,7 @@ def main_eval(args):
     print(scores)
 
 def main_process(args):
-    corrector = GPTGrammarCorrector(language=args.language)
+    corrector = corrector_factory(args.model, language=args.language)
     checker = GrammarChecker()
     print("INFO: Processing mode. Reads lines from stdin, outputs tsv with original and corrected text.", file=sys.stderr)
     print("INFO: Model: ", corrector.info(), file=sys.stderr)
@@ -298,7 +244,8 @@ def main_process(args):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser("Grammar checker.")
-    parser.add_argument("--language", type=str, default="cs", help="Language code, e.g. 'cs' or 'de'.")
+    parser.add_argument("--model", type=str, default="openai/gpt-3.5-turbo", help="The API (indicated by the value before '/', so openai) and the model to use.")
+    parser.add_argument("--language", type=str, default="cs", choices=LANGUAGE_OPTIONS, help="Language code, e.g. 'cs' or 'de'.")
     parser.add_argument("--interactive", default=False, action="store_true", 
                         help="Interactive mode: type input and observe checked and corrected output.")
     parser.add_argument("--eval", default=None,  
