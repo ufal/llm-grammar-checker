@@ -106,6 +106,8 @@ def continuous_levenshtein_alignment(gt_words, asr_words):
     alignment.reverse()
     return alignment
 
+# code that changes the interface for continuous_levenshtein_alignment. The time was needed 
+# in the previous application.
 def to_dict_with_time(tokens):
     return [{"word": t, "time": None} for t in tokens]
 

@@ -1,9 +1,15 @@
 import re
-import difflib
+import sys
 from continuous_alignment import continuous_alignment
-class GrammarCorrector:
+
+class GrammarCorrectorBase:
 
     def correct(self, text):
+        """Given input text, return the corrected text."""
+        raise NotImplemented()
+
+    def info(self):
+        '''return: a string with info about the corrector, e.g. model name, language, etc.'''
         raise NotImplemented()
 
 
@@ -13,16 +19,19 @@ GRAMMAR_CORRECTION_PROMPTS = {
 }
 
 
-class GPTGrammarCorrector(GrammarCorrector):
+class GPTGrammarCorrector(GrammarCorrectorBase):
+    """ Uses OpenAI GPT models for grammar correction.
+    """
 
-    def __init__(self, api_key_file='openai_api_key.txt', language="cs"):
+    def __init__(self, language="cs", model="gpt-3.5-turbo", api_key_file='openai_api_key.txt'):
         import openai
         self.openai = openai
         # Load the OpenAI API key from the file
-        with open('openai_api_key.txt') as f:
+        with open(api_key_file) as f:
             api_key = f.readline().strip()
         openai.api_key = api_key
         self.set_language(language)
+        self.model = model
 
 
     def set_language(self, language):
@@ -38,7 +47,7 @@ class GPTGrammarCorrector(GrammarCorrector):
         
         # Send the correction request to the API.
         completion = self.openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model=self.model,
             messages=messages
         )
 
@@ -46,14 +55,24 @@ class GPTGrammarCorrector(GrammarCorrector):
         chat_response = completion.choices[0].message.content
         return chat_response
 
-class GrammarChecker:
+    def info(self):
+        return f"GPTGrammarCorrector(model={self.model}, language={self.language})"
 
-    def __init__(self):
-        pass
+class GrammarChecker:
+    """
+    1) check: compares original text and corrected text, finds the differences ("C"opy, "S"ubstitution, "D"eletion, "I"nsertion).
+    2) evaluate_check: compares the error detections with gold truth,
+            and it evaluates precision, recall, F1, etc.
+    """
 
     @staticmethod
     def tokenize(text):
-        return re.findall(r'\w+(?:-\w+)*\.?|[.,?!]', text)
+#        # very simple tokenizer. Keeps punctuation as separate tokens.
+#        return re.findall(r'\w+(?:-\w+)*\.?|[.,?!]', text)
+
+        # even simpler tokenizer, keeps punctuation attached to the word
+        return text.split()
+
     @staticmethod
     def edit_operation(a,b):
         if a == b:
@@ -66,12 +85,15 @@ class GrammarChecker:
             return "S"  # substitution
 
     def check(self, orig, corrected):
+        """orig: raw text with possible grammar errors. A string.
+        corrected: corrected text, e.g. proposed by LLM. A string. It can be shorter, longer, equal, different 
+        whitespace formatting, etc.
+
+        return: a dict with a structured result and info. See the comments below.
+        """
         # Tokenize texts for detailed comparison.
         orig_toks = self.tokenize(orig)
         corrected_toks = self.tokenize(corrected)
-#        corrected_toks = corrected_toks[:50] + ["že","?"] + corrected_toks[50:] 
-        print(orig_toks)
-        print(corrected_toks)
 
         alignment = continuous_alignment(orig_toks, corrected_toks)
         edits = [self.edit_operation(a,b) for a,b in alignment]
@@ -79,6 +101,8 @@ class GrammarChecker:
         # highlight errors so that they can be displayed
         h_errors = []
         h_subs = []
+        # correction operations of the original tokens. E.g. "C+I+I" means that after copying the 
+        # original token, two tokens were inserted. This 
         correction_classes = []
         for e,(a,b) in zip(edits,alignment):
             if e == "C":
@@ -139,6 +163,23 @@ class GrammarChecker:
                     }
                 }
 
+    def scores(self, conf_matrix):
+        tp = conf_matrix["tp"]
+        fp = conf_matrix["fp"]
+        tn = conf_matrix["tn"]
+        fn = conf_matrix["fn"]
+        n = tp + fp + tn + fn
+        # compute precision, recall, F1
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        accuracy = (tp + tn) / n if n > 0 else 0.0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+
+
+        return {"precision": precision, "recall": recall, "accuracy": accuracy, "f1": f1,
+                "confusion_matrix_perc": {"tp": tp/n*100, "fp": fp/n*100, "tn": tn/n*100, "fn": fn/n*100},
+                "confusion_matrix": conf_matrix}
+
     def evaluate_check(self, result, gold_result):
         k = "orig_toks_edits"
         # It is error detector, a detected error is positive (true/false), non-detecting error is negative (true/false).
@@ -168,70 +209,112 @@ class GrammarChecker:
             detections.append(t)
 
 
-        # compute precision, recall, F1
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        accuracy = (tp + tn) / n if n > 0 else 0.0
-        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
 
-        return {
-            "confusion_matrix": {"tp": tp, "fp": fp, "tn": tn, "fn": fn},
-            "confusion_matrix_perc": {"tp": tp/n*100, "fp": fp/n*100, "tn": tn/n*100, "fn": fn/n*100},
-            "precision": precision,
-            "recall": recall,
-            "accuracy": accuracy,
-            "f1": f1,
+        conf_matrix = {"tp": tp, "fp": fp, "tn": tn, "fn": fn}
+        r = {
+            "confusion_matrix": conf_matrix,
+
             "detections": detections,
 
             # the baseline that is always guessing the most frequent class (here: "C")
             "baseline_accuracy": gold_result[k].count("C")/n if n > 0 else 0.0,
-
-
         }
+        r.update(self.scores(conf_matrix))
+        return r
+
+def main_interactive(args):
+    corrector = GPTGrammarCorrector(language=args.language)
+    checker = GrammarChecker()
+    print("INFO: Interactive grammar checker and corrector. Type input text and observe automatic check and correction proposal. " + \
+          "Note that it might be wrong.", file=sys.stderr)
+    print("INFO: Model ")
+    for text_with_errors in iter(input, 'exit'):
+        text_with_errors = text_with_errors.strip()
+        if not text_with_errors:
+            break
+        text_corrected = corrector.correct(text_with_errors)
+        result = checker.check(text_with_errors, text_corrected)
+
+        print("NUMBER OF DETECTED ERRORS:\t", len(result["info"]["errors"]))
+        print("HIGHLIGHTED ERRORS:\t", result["info"]["highlighted_errors"])
+        print("HIGHLIGHTED CORRECTION:\t", result["info"]["highlighted_corrections"])
+        print("CORRECTED TEXT:\t", text_corrected)
+        print()
+
+def main_eval(args):
+    print("INFO: Evaluation mode.")
+    checker = GrammarChecker()
+
+    conf_matrix = {"tp": 0, "fp": 0, "tn": 0, "fn": 0}
+
+    c = 0
+    n = 0
+    with open(args.eval) as f:
+        for auto_corr, gold_line in zip(sys.stdin, f):
+            auto_or, auto_corr = auto_corr.strip().split("\t")
+            gold_or, gold_corr = gold_line.strip().split("\t")
+            a = checker.check(auto_or, auto_corr)
+            g = checker.check(gold_or, gold_corr)
+            print("CHECKS:",file=sys.stderr)
+            print("AUTO\t",a["info"]["highlighted_errors"],file=sys.stderr)
+            print("GOLD\t",g["info"]["highlighted_errors"],file=sys.stderr)
+            print("CORRECTIONS:",file=sys.stderr)
+            print("ORIG\t",auto_or,file=sys.stderr)
+            print("AUTO CORRECTED:\t",a["corrected"],file=sys.stderr)
+            print("GOLD CORRECTED:\t",g["corrected"],file=sys.stderr)
+
+            c += g["orig_toks_edits"].count("C")
+            n += len(g["orig_toks_edits"])
+
+            ch = checker.evaluate_check(a,g)
+            print(ch,file=sys.stderr)
+
+            print(conf_matrix,file=sys.stderr)
+            conf_matrix = {k: conf_matrix[k]+ch["confusion_matrix"][k] for k in conf_matrix}
+
+            print(file=sys.stderr)
+
+    print("FINAL SCORES:", file=sys.stderr)
+    scores = checker.scores(conf_matrix)
+    scores["baseline_accuracy"] = c/n if n > 0 else 0.0
+    print(scores)
+
+def main_process(args):
+    corrector = GPTGrammarCorrector(language=args.language)
+    checker = GrammarChecker()
+    print("INFO: Processing mode. Reads lines from stdin, outputs tsv with original and corrected text.", file=sys.stderr)
+    print("INFO: Model: ", corrector.info(), file=sys.stderr)
+    for text_with_errors in sys.stdin:
+        text_with_errors = text_with_errors.strip()
+        if not text_with_errors:
+            continue
+        text_corrected = corrector.correct(text_with_errors)
+        result = checker.check(text_with_errors, text_corrected)
+        corr = result['corrected'].replace("\n"," ").replace("\t"," ").strip()
+        print(f"{result['orig']}\t{corr}", flush=True)
 
 
 
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser("Grammar checker.")
+    parser.add_argument("--language", type=str, default="cs", help="Language code, e.g. 'cs' or 'de'.")
+    parser.add_argument("--interactive", default=False, action="store_true", 
+                        help="Interactive mode: type input and observe checked and corrected output.")
+    parser.add_argument("--eval", default=None,  
+                        help="Evaluation mode: don't process grammar checker, only evaluate it. " + \
+                            "The argument is a tsv filename with gold (two tab-separated columns, orig+gold corrected), " + \
+                            "stdin is the system output to be evaluated (two tab-separated columns, orig+auto corrected).")
 
+    args = parser.parse_args()
 
-g = GPTGrammarCorrector()
-a = """    Americký prezident Donald Trump v pátek prohlásil že mu dochází
-trpělivost s ruským protějškem Vladimirem Putinem. Trump se od lednového
-návratu do černého domu snaží zprostředkovat mír na Ukrajině kam v únoru 2022
-na Putinův rozkaz vpadla ruská armáda. Zatímco Ukrajina opakovaně souhlasila z
-americkým návrhem na bezpodmínečné příměří moskva na to nepřistoupila.
-"""
-x = g.correct(a)
-ch = GrammarChecker()
-x = ch.check(a, x)
-#print(x)
+    if args.interactive and args.eval is not None:
+        print("ERROR: --interactive and --eval can not be used at once.", file=sys.stderr)
+        sys.exit(1)
 
-
-gold = """Americký prezident Donald Trump v pátek prohlásil, že mu dochází
-trpělivost s ruským protějškem Vladimirem Putinem. Trump se od lednového
-návratu do Bílého domu snaží zprostředkovat mír na Ukrajině, kam v únoru 2022
-na Putinův rozkaz vpadla ruská armáda. Zatímco Ukrajina opakovaně souhlasila s
-americkým návrhem na bezpodmínečné příměří, Moskva na to nepřistoupila.
-"""
-
-gold_result = ch.check(a, gold)
-print(gold_result)
-
-for k in ["orig",
-         "orig_toks",
-         "corrected",
-         "corrected_toks",
-#         "alignment",
-        "orig_toks_edits",
-         "edit_operations",
-         "corrections",
-         "errors",
-         "highlighted_errors",
-         "highlighted_corrections"]:
-    if k in gold_result:
-        print(k, gold_result[k])
-
-det = ch.evaluate_check(x, gold_result)
-print(det)
-
-for t,a,b,c in zip(x["orig_toks"],x["orig_toks_edits"], gold_result["orig_toks_edits"], det["detections"]):
-    print(t,a,b,c)
+    if args.interactive:
+        main_interactive(args)
+    elif args.eval is not None:
+        main_eval(args)
+    else:
+        main_process(args)
