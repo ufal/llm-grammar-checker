@@ -68,6 +68,48 @@ class OpenAIGPTGrammarCorrector(GrammarCorrectorBase):
     def info(self):
         return f"GPTGrammarCorrector(model={self.model}, language={self.language})"
 
+
+
+# TODO: the code duplication is not nice: 
+class UfalGemmaGrammarCorrector(OpenAIGPTGrammarCorrector):
+    """ Uses Ufal Gemma API for grammar correction.
+    """
+
+    def __init__(self, language="cs", model="DGT-API.google/gemma-3-27b-it", api_key_file='aiufal_api_key.txt'):
+        # this import is here to avoid requiring openai package if this class is not used.
+        import openai
+        # Load the OpenAI API key from the file
+        with open(api_key_file) as f:
+            api_key = f.readline().strip()
+        self.set_language(language)
+        self.model = model
+        print(model)
+
+        self.client = openai.Client(
+            base_url="https://ai.ufal.mff.cuni.cz/api/v1",
+            api_key=api_key,
+        )
+
+    def correct(self, text):
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": text}
+        ]
+        
+        # Send the correction request to the API.
+        completion = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages
+        )
+
+        # Extract the corrected text from the response.
+        chat_response = completion.choices[0].message.content
+        return chat_response
+        
+
+    def info(self):
+        return f"UfalGemmaGrammarCorrector(language={self.language})"
+
 def corrector_factory(api_model, **kw):
     """
     api_model: a string of the form "api/model", e.g. "openai/gpt-3.5-turbo"
@@ -79,5 +121,7 @@ def corrector_factory(api_model, **kw):
     if api == "openai":
         return OpenAIGPTGrammarCorrector(model=model, **kw)
     # TODO: add other APIs or models here.
+    elif api == "DGT-API.google":
+        return UfalGemmaGrammarCorrector(model=api_model, **kw)
     else:
         raise ValueError(f"Unknown API: {api}")
