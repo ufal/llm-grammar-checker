@@ -39,15 +39,16 @@ class OpenAIGPTGrammarCorrector(GrammarCorrectorBase):
         # Load the OpenAI API key from the file
         with open(api_key_file) as f:
             api_key = f.readline().strip()
-        openai.api_key = api_key
         self.set_language(language)
         self.model = model
 
+        self.client = openai.Client(
+            api_key=api_key,
+        )
 
     def set_language(self, language):
         self.language = language
         self.system_prompt = GRAMMAR_CORRECTION_PROMPTS[language]
-
 
     def correct(self, text):
         messages = [
@@ -56,7 +57,7 @@ class OpenAIGPTGrammarCorrector(GrammarCorrectorBase):
         ]
         
         # Send the correction request to the API.
-        completion = self.openai.ChatCompletion.create(
+        completion = self.client.chat.completions.create(
             model=self.model,
             messages=messages
         )
@@ -89,23 +90,6 @@ class UfalGemmaGrammarCorrector(OpenAIGPTGrammarCorrector):
             base_url="https://ai.ufal.mff.cuni.cz/api/v1",
             api_key=api_key,
         )
-
-    def correct(self, text):
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": text}
-        ]
-        
-        # Send the correction request to the API.
-        completion = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages
-        )
-
-        # Extract the corrected text from the response.
-        chat_response = completion.choices[0].message.content
-        return chat_response
-        
 
     def info(self):
         return f"UfalGemmaGrammarCorrector(language={self.language})"

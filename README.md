@@ -14,7 +14,9 @@ For German input text `Kleine katze kom her bite.`, *grammar correction* is `Kle
 
 - you need a python3 virtual environments with dependencies for the LLM model API that you're going to use. At this moment, there is:
 
--  **OpenAI API**: Install with `pip install openai==0.28`. You need an OpenAI API key saved in a file named `openai_api_key.txt` in the directory from which you run `python3 grammar_checker.py`.
+-  **OpenAI API**: Install with `pip install openai`. You need an OpenAI API key saved in a file named `openai_api_key.txt` in the directory from which you run `python3 grammar_checker.py`.
+
+-  **UFAL.AI API**: Install with `pip install openai`. You need an UFAL.AI API key saved in a file named `ufalai_api_key.txt` in the directory from which you run `python3 grammar_checker.py`.
 
 ## Usage
 
