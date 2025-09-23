@@ -13,15 +13,17 @@ class GrammarCorrectorBase:
 
 
 GRAMMAR_CORRECTION_PROMPTS = {
-        "de": "Korrigiere den folgenden deutschen Text und gib mir die korrigierte Version. Mach keine Erklärungen, gib nur den korrigierten Text zurück. Wenn der Text bereits korrekt ist, gib den Originaltext zurück.",
         "cs": "Oprav následující text podle pravidel českého pravopisu a vypiš správnou verzi. Nedávej žádná vysvětlení, jen opravený text. Pokud je text už správně, vypiš původní text.",
+        "de": "Korrigiere den folgenden deutschen Text und gib mir die korrigierte Version. Mach keine Erklärungen, gib nur den korrigierten Text zurück. Wenn der Text bereits korrekt ist, gib den Originaltext zurück.",
+        "en": "Correct the following English text and provide me with the corrected version. Do not give any explanations, just return the corrected text. If the text is already correct, return the original text.",
+        "fr": "Corrige le texte français suivant et donne-moi la version corrigée. Ne donne pas d'explication, donne-moi seulement le texte corrigé. Si le texte est déjà correct, donne-moi le texte original.",
+        "el": "Διόρθωσε το ελληνικό κείμενο και δώσε μου τη διορθωμένη έκδοση. Δεν χρειάζεται επεξήγηση. Αν κάποια φράση είναι σωστή, επίστρεψέ την όπως είναι.",
+        "hr": "Pregledaj sljedeći hrvatski tekst. Ispravi sve pronađene gramatičke i pravopisne pogreške i samo tu vrstu pogrešaka. Nipošto nemoj ispravljati nikakve stilske pogreške. Greškom se ne smatraju (1) malo slovo na početku teksta, (2) bilo koji interpunkcijski znak u uglatim zagradama [.,;?!] na kraju teksta i (3) kad tekst završava bez interpunkcije. Prikaži rezultat. Nemoj ništa objašnjavati, želim samo ispravljen tekst. Ako je tekst već gramatički točan, samo prikaži početni tekst.",
 
         # TODO: these are suggested by Copilot. They need correction and verification.
-        "en": "Correct the following English text and provide me with the corrected version. Do not give any explanations, just return the corrected text. If the text is already correct, return the original text.",
         "fr": "Corrige le texte français suivant et donne-moi la version corrigée. Ne fais pas d'explications, donne-moi seulement le texte corrigé. Si le texte est déjà correct, donne-moi le texte original.",
         "hu": "Javítsd ki a következő magyar szöveget, és add meg a javított változatot. Ne adj magyarázatokat, csak a javított szöveget. Ha a szöveg már helyes, add meg az eredeti szöveget.",
         "bg": "Коригирай следния български текст и ми предостави коригираната версия. Не давай обяснения, просто върни коригирания текст. Ако текстът вече е правилен, върни оригиналния текст.",
-        "el": "Διόρθωσε το παρακάτω ελληνικό κείμενο και δώσε μου την διορθωμένη έκδοση. Μην δίνεις εξηγήσεις, απλώς επιστρέψε το διορθωμένο κείμενο. Αν το κείμενο είναι ήδη σωστό, επιστρέψε το αρχικό κείμενο.",
         "lu": "Corrigéiert den folgenden lëtzebuergeschen Text a gitt mir déi korrigéiert Versioun. Maacht keng Erklärungen, gitt just den korrigéierten Text zréck. Wann de Text schonn korrekt",
         # maltese:
         "mt": "Ikkoreġi t-test Malti li ġej u agħtini l-verżjoni kkorreġuta. Tgħaddix spjegazzjonijiet, għid biss it-test kkorreġut. Jekk it-test diġà huwa korrett, agħtini t-test oriġinali.",
@@ -84,7 +86,6 @@ class UfalGemmaGrammarCorrector(OpenAIGPTGrammarCorrector):
             api_key = f.readline().strip()
         self.set_language(language)
         self.model = model
-        print(model)
 
         self.client = openai.Client(
             base_url="https://ai.ufal.mff.cuni.cz/api/v1",
